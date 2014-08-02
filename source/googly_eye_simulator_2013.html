@@ -1,0 +1,202 @@
+<!--
+	Nicholas Nguyen
+	CMPS179 Assignment 1: Reactive Drawing
+	Googly Eye Simulator 2013
+	
+	Left click to draw
+	Right click to add a googly eye
+	
+	Drawing gets laggy with more googly eyes placed, so it is better
+	to draw your picture and then add the googly eyes. 
+-->
+<!DOCTYPE html>
+<html>
+<head>
+	<title> Googly Eye Simulator 2013 </title>
+	
+    <img src="../assets/reset.png" id="reset" width="0" height="0">
+	<img src="../assets/undo.png" id="undo" width="0" height="0">
+    <!-- Load the Paper.js library -->
+	<script type="text/javascript" src="../lib/paper.js"></script>
+	<!-- Load external PaperScript and associate it with canvas -->
+	<script type="text/paperscript" canvas="canvas">
+	
+	var drawing;
+	var left = 0;
+	var right = 2;
+	var eyes = new Array();
+	var oEyeList = new Array();
+	var iEyeList = new Array();
+	var outside = new Array();
+	var inside = new Array();
+	var iterEye = 0;
+    
+    var undoList = new Array();
+    var uIter = 0;
+	
+	var colors = ['black', 'brown', 'purple', 'blue', 'green',
+				  'red', 'orange', 'yellow'];
+	var drawColor = 'black';
+    var boxArray = new Array();
+    var ebutt; 
+
+	var x;
+	var y;
+	var o = 7;//pupil offset
+	
+	function colorPalette(){
+		for (i = 0; i < colors.length; i++){
+			var box= new Path.Rectangle(5,0+(i*30),30,30);
+			box.fillColor = colors[i];
+			box.strokeColor = 'black';
+            boxArray[i] = box; 
+		}
+        eyePos = new Point(20, (colors.length + 1) * 30 - 5);
+        ebutt = new Path.Circle(eyePos, 15);
+		ebutt.strokeColor = 'black';
+		ebutt.fillColor = 'white';
+		ebutt.strokeWidth = 3;
+		var inner = new Path.Circle(eyePos, 5);
+		inner.fillColor = 'black';
+        
+        var undoB = new Raster('undo');
+        undoB.position = new Point(20, (colors.length + 3)*30 - 10);
+        
+        var resetB = new Raster('reset');
+        resetB.position = new Point(20, (colors.length + 4)*30 + 5);
+        
+        
+	}
+	
+	function colorPicker(event){
+    console.log(event.point);
+		if (event.point.x < 35){
+            for ( i = 0; i < boxArray.length; i++){
+                boxArray[i].strokeWidth = 1;
+                ebutt.selected = false;
+            }
+			if (event.point.y < 30){
+				drawColor = colors[0];
+                boxArray[0].strokeWidth = 3;
+            }
+            else if (event.point.y >(colors.length*30) && event.point.y < 30+(colors.length*30)){
+                ebutt.selected = true; 
+            }
+            else if (event.point.y > 305 && event.point.y < 335)
+                undo();
+            else if (event.point.y > 350 && event.point.y < 380)
+                reset();
+            else
+                for (i = 0; i < colors.length - 1; i++){
+                    if (event.point.y < 60+(i*30) && event.point.y > 30+(i*30)){
+                        drawColor =  colors[i+1];
+                        boxArray[i+1].strokeWidth = 3;
+                    }
+                }
+		}
+	}
+			
+	//draws eyes
+	function googly(x, y, pupilX, pupilY, iter){
+		pupil = new Point(x + pupilX, y + pupilY);
+		eyePos = new Point(x, y);
+	
+		var outer = new Path.Circle(eyePos, 21);
+		outer.strokeColor = 'black';
+		outer.fillColor = 'white';
+		outer.strokeWidth = 5;
+		var inner = new Path.Circle(pupil, 7);
+		inner.fillColor = 'black';
+		
+		oEyeList[iter] = outer;
+		iEyeList[iter] = inner;
+		eyes[iter] = eyePos; 
+	}
+	
+	function eyeAdjust(event){
+		for (i = 0; i < eyes.length; i=i+1){
+			if (event.point.x > eyes[i].x + o)
+				x=o;
+			else if (event.point.x < eyes[i].x - o)
+				x=-o;
+			else
+				x = 0;
+				
+			if (event.point.y > eyes[i].y + o)
+				y=o;
+			else if (event.point.y < eyes[i].y - o)
+				y=-o;
+			else
+				y = 0;
+			
+			outside[i] = eyes[i]; 
+			inside[i] = new Point(x, y); 
+		}
+	}
+	
+	function newEyes(){
+		for (i = 0; i < eyes.length; i++){
+			oEyeList[i].remove(); 
+			iEyeList[i].remove();
+			googly(outside[i].x, outside[i].y, inside[i].x, inside[i].y, i);
+		}
+	}
+    
+    function undo(){
+        undoList[uIter-1].remove();
+        uIter--;
+    }
+    
+    function reset(){
+        document.location.reload(true);
+    }
+	
+	function onMouseDown(event){
+		drawing = new Path();
+		colorPicker(event);
+		if (event.event.button == left && event.point.x > 35 && !ebutt.selected){
+			drawing.strokeWidth = 5;
+			drawing.strokeColor = drawColor;
+			drawing.add(event.point);
+		} 
+		else if (ebutt.selected && event.point.x > 35){
+			googly(event.point.x, event.point.y, 0, 0, iterEye);
+			iterEye = iterEye + 1;
+		}
+	}
+	
+	function onMouseDrag(event){
+		if (event.event.button == left && event.point.x > 35){
+			drawing.add(event.point);
+			drawing.smooth();
+		}
+	}
+	
+	function onMouseUp(event){
+		if (event.event.button == left){
+			drawing.add(event.point);
+			drawing.smooth();
+            
+            if (event.point.x > 25){
+                undoList[uIter] = drawing; 
+                uIter++;
+            }
+		}
+	}
+	
+	function onMouseMove(event){
+		eyeAdjust(event);
+		newEyes();
+	}
+	
+	colorPalette();
+	</script>
+</head>
+<body>
+    <canvas id="canvas" resize></canvas>
+	<p> Nicholas Nguyen: Googly Eye Simulator 2013 </p>
+	<p> Pick a color, draw a thing, click the eye, give your drawing all the personality ever.</p>
+	<p><a href="http://people.ucsc.edu/~niqnguye/asg1/niqnguye-drawing-designDoc.pdf">Design Doc</a><br>
+	<a href="http://people.ucsc.edu/~niqnguye/asg1/ges2k13_source.txt">Source</a></p>
+</body>
+</html>
